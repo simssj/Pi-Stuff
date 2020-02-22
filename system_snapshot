@@ -49,6 +49,7 @@ cat <<'EOF' > "${_exclude_file}"
 /var/cache/*
 /var/log/*
 /var/*swap*
+/var/tmp/*
 /Volumes/*
 *.log
 *.log.[0-9]
