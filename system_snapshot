@@ -47,11 +47,15 @@ cat <<'EOF' > "${_exclude_file}"
 /lost+found
 /var/backups/*
 /var/cache/*
+/var/lib/plexmediaserver/*
 /var/log/*
 /var/*swap*
 /var/tmp/*
 /Volumes/*
+*.db-shm
+*.db-wal
 *.log
+*.db-shm
 *.log.[0-9]
 .swapfile
 swapfile
@@ -111,4 +115,3 @@ LOG "${_script_name} completed."
 
 # And.... exit clean
 exit 0
-
