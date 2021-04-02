@@ -34,8 +34,14 @@ LOG "${_MSG}"
 # Set up Exclusions:
 readonly _exclude_file=/tmp/${_script_name}.excludes
 cat <<'EOF' > "${_exclude_file}"
+.AppleDouble/
+.fseventd/
+.fseventsd/
+.Spotlight-V100/
+.TemporaryItems/
+.Trashes/
+@eaDir/
 /backups/*
-/boot/.Spotlight-V100/*
 /boot/.fseventsd/*
 /dev/*
 /proc/*
@@ -61,6 +67,17 @@ cat <<'EOF' > "${_exclude_file}"
 *.log.[0-9]
 .swapfile
 swapfile
+._*
+.apdisk
+.com.*
+.disk_label*
+.DocumentRevisions-V100
+.DS_Store
+.VolumeIcon.icns
+.partial*
+*.in_progress
+auto.ini
+Autorun.inf
 EOF
 
 ###### Backup root file system to space on SD card:
@@ -78,6 +95,7 @@ else    # The semaphore file we planted on the SD card is visible in the mount p
 # FLAGS="${FLAGS} --debug=filter "
   ${_CMD} rsync ${FLAGS} \
     --archive --acls --xattrs --verbose \
+    --no-specials --no-devices \
     --delete-during --delete-excluded --recursive \
     --exclude-from="${_exclude_file}" \
     / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
