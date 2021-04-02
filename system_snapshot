@@ -45,8 +45,10 @@ cat <<'EOF' > "${_exclude_file}"
 /mnt/*
 /media/*
 /lost+found
+/usr/share/man/*
 /var/backups/*
 /var/cache/*
+/var/lib/docker/volumes/backingFsBlockDev
 /var/lib/plexmediaserver/*
 /var/log/*
 /var/*swap*
