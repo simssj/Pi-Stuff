@@ -1,0 +1,121 @@
+#!/bin/bash
+# This is "/usr/local/bin/system_snapshot"
+
+readonly _script_name=$(basename "$0")
+readonly _log_dir=/var/log
+readonly _log_file=${_log_dir}/${_script_name}.log
+
+LOG() {
+    ${_CMD} printf "[%s] %s\n" "$(date)" "$@" | tee -a "${_log_file}"
+}
+
+_MSG=$( printf "[%s] Starting ${_script_name} as user: %s" "$(date)" "$(whoami)" )
+
+# Check to make sure we can execute sudo commands:
+if [ "$(id -u)" -eq "0" ]; then # Running as root
+  readonly _CMD=""
+else # Not root; can we get sudo?
+  if [ "$(sudo id -u)" -eq "0" ]; then # Yes we can
+    readonly _CMD="sudo"
+    _MSG="${_MSG} with sudo privileges."
+  else
+    printf "[%s] Unable to start %s due to required privileges.\nExiting with error.\n" "$(date)" "${0}"
+    printf "Unable to start %s due to required privileges.\nExiting with error.\n" "${0}" | logger
+    exit 1
+  fi
+fi
+
+# Set up Log Files:
+${_CMD} touch "${_log_file}"
+${_CMD} chgrp staff "${_log_file}"
+${_CMD} chmod 664 "${_log_file}"
+LOG "${_MSG}"
+
+# Set up Exclusions:
+readonly _exclude_file=/tmp/${_script_name}.excludes
+cat <<'EOF' > "${_exclude_file}"
+/backups/*
+/boot/.Spotlight-V100/*
+/boot/.fseventsd/*
+/dev/*
+/proc/*
+/sys/*
+/tmp/*
+/run/*
+/mnt/*
+/media/*
+/lost+found
+/var/backups/*
+/var/cache/*
+/var/lib/plexmediaserver/*
+/var/log/*
+/var/*swap*
+/var/tmp/*
+/Volumes/*
+/data/*
+._*
+*.db-shm
+*.db-wal
+*.log
+*.db-shm
+*.log.[0-9]
+.swapfile
+swapfile
+EOF
+
+###### Backup root file system to space on SD card:
+LOG "Creating temporary mount point"
+_mount_point=$(sudo mktemp -d /tmp/system_snapshot.XXXXX)
+# LOG "Mounting SDCard media."
+# ${_CMD} mount /dev/mmcblk0p3 "${_mount_point}"
+LOG "Mounting boot device data partition."
+${_CMD} mount /dev/sdb3 "${_mount_point}"
+if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
+  LOG "Apparently the SDCard did not mount correctly."
+else    # The semaphore file we planted on the SD card is visible in the mount point.
+  LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
+  LOG "Copying to SDCard is in process..."
+  FLAGS="--one-file-system --itemize-changes"
+# FLAGS="${FLAGS} --dry-run"
+# FLAGS="${FLAGS} --debug=filter "
+  ${_CMD} rsync ${FLAGS} \
+    --archive --acls --xattrs --verbose \
+    --delete-during --delete-excluded --recursive \
+    --exclude-from="${_exclude_file}" \
+    / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
+  LOG "Resetting semaphore file."
+  ${_CMD} touch "${_mount_point}"/.mounted
+fi
+LOG "Unmounting SD Card."
+${_CMD} umount -f "${_mount_point}"
+
+LOG "Removing temporary mount point: ${_mount_point}"
+${_CMD} rm -rf "${_mount_point}"
+
+###### Backup root file system to space on external volume:
+_mount_point=/Volumes/Media/backups
+LOG "Verifying ${_mount_point}."
+if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
+  LOG "File ${_mount_point}/.mounted doesn't exist."
+else
+  LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
+  LOG "Copying to ${_mount_point} is in process..."
+  FLAGS="--one-file-system --itemize-changes"
+# FLAGS="${FLAGS} --dry-run"
+# FLAGS="${FLAGS} --debug=filter "
+  ${_CMD} rsync ${FLAGS} \
+    --archive --acls --xattrs --verbose \
+    --delete-during --delete-excluded --recursive \
+    --exclude-from="${_exclude_file}" \
+    / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
+  LOG "Resetting semaphore file."
+  ${_CMD} touch "${_mount_point}"/.mounted
+fi
+
+LOG "Removing excludes file: ${_exclude_file}"
+${_CMD} rm -f "${_exclude_file}"
+
+LOG "${_script_name} completed."
+
+# And.... exit clean
+exit 0
