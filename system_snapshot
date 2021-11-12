@@ -4,9 +4,11 @@
 readonly _script_name=$(basename "$0")
 readonly _log_dir=/var/log
 readonly _log_file=${_log_dir}/${_script_name}.log
+readonly _exclude_file=/tmp/${_script_name}.excludes
+readonly _mount_point=/data
 
 LOG() {
-    ${_CMD} printf "[%s] %s\n" "$(date)" "$@" | tee -a "${_log_file}"
+    ${_CMD} printf "[%s] %s\n" "$(date)" "$@" | tee --append  "${_log_file}"
 }
 
 _MSG=$( printf "[%s] Starting ${_script_name} as user: %s" "$(date)" "$(whoami)" )
@@ -27,12 +29,11 @@ fi
 
 # Set up Log Files:
 ${_CMD} touch "${_log_file}"
-${_CMD} chgrp adm "${_log_file}"
-${_CMD} chmod 666 "${_log_file}"
+${_CMD} chgrp staff "${_log_file}"
+${_CMD} chmod 664 "${_log_file}"
 LOG "${_MSG}"
 
 # Set up Exclusions:
-readonly _exclude_file=/tmp/${_script_name}.excludes
 cat <<'EOF' > "${_exclude_file}"
 /backups/*
 /boot/.Spotlight-V100/*
@@ -63,45 +64,13 @@ cat <<'EOF' > "${_exclude_file}"
 swapfile
 EOF
 
-###### Backup root file system to space on SD card:
-LOG "Creating temporary mount point"
-_mount_point=$(sudo mktemp -d /tmp/system_snapshot.XXXXX)
-# LOG "Mounting SDCard media."
-# ${_CMD} mount /dev/mmcblk0p3 "${_mount_point}"
-LOG "Mounting boot device data partition."
-${_CMD} mount /dev/sdb3 "${_mount_point}"
 if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
-  LOG "Apparently the SDCard did not mount correctly."
-else    # The semaphore file we planted on the SD card is visible in the mount point.
+  LOG "Apparently ${_mount_point} did not mount correctly."
+else    # The semaphore file we planted on the destination device is visible in the mount point.
   LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
-  LOG "Copying to SDCard is in process..."
+  LOG "Copying is in process..."
   FLAGS="--one-file-system --itemize-changes"
-# FLAGS="${FLAGS} --dry-run"
-# FLAGS="${FLAGS} --debug=filter "
-  ${_CMD} rsync ${FLAGS} \
-    --archive --acls --xattrs --verbose \
-    --delete-during --delete-excluded --recursive \
-    --exclude-from="${_exclude_file}" \
-    / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
-  LOG "Resetting semaphore file."
-  ${_CMD} touch "${_mount_point}"/.mounted
-fi
-LOG "Unmounting SD Card."
-${_CMD} umount -f "${_mount_point}"
-
-LOG "Removing temporary mount point: ${_mount_point}"
-${_CMD} rm -rf "${_mount_point}"
-
-###### Backup root file system to space on external volume:
-_mount_point=/Volumes/Media/backups
-LOG "Verifying ${_mount_point}."
-if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
-  LOG "File ${_mount_point}/.mounted doesn't exist."
-else
-  LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
-  LOG "Copying to ${_mount_point} is in process..."
-  FLAGS="--one-file-system --itemize-changes"
-# FLAGS="${FLAGS} --dry-run"
+  FLAGS="${FLAGS} --dry-run"
 # FLAGS="${FLAGS} --debug=filter "
   ${_CMD} rsync ${FLAGS} \
     --archive --acls --xattrs --verbose \
