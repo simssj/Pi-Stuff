@@ -70,7 +70,7 @@ else    # The semaphore file we planted on the destination device is visible in 
   LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
   LOG "Copying is in process..."
   FLAGS="--one-file-system --itemize-changes"
-  FLAGS="${FLAGS} --dry-run"
+# FLAGS="${FLAGS} --dry-run"
 # FLAGS="${FLAGS} --debug=filter "
   ${_CMD} rsync ${FLAGS} \
     --archive --acls --xattrs --verbose \
