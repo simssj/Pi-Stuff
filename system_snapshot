@@ -80,6 +80,7 @@ swapfile
 *.in_progress
 auto.ini
 Autorun.inf
+/var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Cache/*
 EOF
 
 ###### Backup root file system to space on SD card:
