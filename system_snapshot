@@ -47,7 +47,7 @@ cat <<'EOF' > "${_exclude_file}"
 /etc/pihole/*
 /proc/*
 /sys/*
-/tmp/*
+/tmp
 /run/*
 /mnt/*
 /media/*
@@ -56,19 +56,21 @@ cat <<'EOF' > "${_exclude_file}"
 /var/backups/*
 /var/cache/*
 /var/lib/docker/volumes/backingFsBlockDev
+/var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Cache/*
 /var/lib/rpimonitor/*
+/var/lib/samba/private/msg.sock/*
 /var/log/*.gz
 /var/log/journal/*
 /var/log/samba/log*
-/var/lib/samba/private/msg.sock/*
 /var/*swap*
-/var/tmp/*
-/Volumes/*
+/var/tmp
+/Volumes
 *.db-shm
 *.db-wal
 *.blog
 *.db-shm
 *.log.[1-9]
+*.[1-9].log
 *.log*.gz
 .swapfile
 swapfile
@@ -83,7 +85,6 @@ swapfile
 *.in_progress
 auto.ini
 Autorun.inf
-/var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Cache/*
 EOF
 
 ###### Backup root file system to space on SD card:
