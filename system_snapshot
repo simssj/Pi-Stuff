@@ -7,8 +7,6 @@
 #   Detect the target filesystem and if it doesn't support (e.g.:) chown / chmod events remove them from RSYNC_FLAGS
 # e.g., ExFAT file systems benefit from these flags: " --no-perms --no-owner --no-group --no-links --modify-window=2 "
 
-
-
 readonly _script_name=$(basename "$0")
 readonly _log_dir=/var/log
 readonly _log_file=${_log_dir}/${_script_name}.log
@@ -43,29 +41,35 @@ LOG "${_MSG}"
 readonly _exclude_file=/tmp/${_script_name}.excludes
 cat <<'EOF' > "${_exclude_file}"
 .AppleDouble/
+.cache/
 .fseventd/
 .fseventsd/
 .Spotlight-V100/
 .TemporaryItems/
 .Trashes/
 @eaDir/
+Cache/
 /backups/*
 /boot/.fseventsd/*
 /data/*
 /dev/*
 /etc/pihole/*
-/proc/*
-/sys/*
-/tmp
-/run/*
+/lost+found
 /mnt/*
 /media/*
-/lost+found
+/opt/Docker/AppData/radarr/logs/radarr.*.txt
+/proc/*
+/run/*
+/snap/
+/sys/*
+/tmp
 /usr/share/man/*
 /var/backups/*
 /var/cache/*
+/var/lib/docker/containers/*
 /var/lib/docker/volumes/backingFsBlockDev
 /var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Cache/*
+/var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Media/localhost/*
 /var/lib/rpimonitor/*
 /var/lib/samba/private/msg.sock/*
 /var/log/*.gz
@@ -73,7 +77,7 @@ cat <<'EOF' > "${_exclude_file}"
 /var/log/samba/log*
 /var/*swap*
 /var/tmp
-/Volumes
+/Volumes/Media
 *.db-shm
 *.db-wal
 *.blog
@@ -96,60 +100,62 @@ auto.ini
 Autorun.inf
 EOF
 
-###### Backup root file system to space on SD card:
-LOG "Creating temporary mount point"
-_mount_point=$(sudo mktemp -d /tmp/system_snapshot.XXXXX)
-LOG "Mounting SDCard media."
-${_CMD} mount /dev/mmcblk0p2 "${_mount_point}"
-if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
-  LOG "Apparently the SDCard did not mount correctly."
-else    # The semaphore file we planted on the SD card is visible in the mount point.
-  LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
-  LOG "Copying to SDCard is in process..."
-  FLAGS=" --links "
-# FLAGS="${FLAGS} --dry-run"
-# FLAGS="${FLAGS} --debug=filter "
-FLAGS="${FLAGS} --itemize-changes "
-  ${_CMD} rsync ${FLAGS} \
-    --archive --acls --xattrs --verbose \
-    --no-specials --no-devices \
-    --delete-during --delete-excluded --recursive \
-    --exclude-from="${_exclude_file}" \
-    / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
-  LOG "Resetting semaphore file."
-  ${_CMD} touch "${_mount_point}"/.mounted
-fi
-LOG "Unmounting SD Card."
-${_CMD} umount -f "${_mount_point}"
+##### Clean up any lingering Docker cruft:
+  LOG "Pruning Docker subsystem"
+  ${_CMD} docker system prune -a --volumes -f
 
-LOG "Removing temporary mount point: ${_mount_point}"
-${_CMD} rm -rf "${_mount_point}"
+###### Backup root file system to space on SD card:
+  LOG "Creating temporary mount point"
+  _mount_point=$(sudo mktemp -d /tmp/system_snapshot.XXXXX)
+  LOG "Mounting SDCard media."
+  ${_CMD} mount /dev/mmcblk0p2 "${_mount_point}"
+  if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
+    LOG "Apparently the SDCard did not mount correctly."
+  else    # The semaphore file we planted on the SD card is visible in the mount point.
+    LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
+    LOG "Copying to SDCard is in process..."
+    FLAGS=" --links "
+  # FLAGS="${FLAGS} --dry-run"
+  # FLAGS="${FLAGS} --debug=filter "
+  FLAGS="${FLAGS} --itemize-changes "
+    ${_CMD} rsync ${FLAGS} \
+      --archive --acls --xattrs --verbose \
+      --no-specials --no-devices \
+      --delete-during --delete-excluded --recursive \
+      --exclude-from="${_exclude_file}" \
+      / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
+    LOG "Resetting semaphore file."
+    ${_CMD} touch "${_mount_point}"/.mounted
+  fi
+  LOG "Unmounting SD Card."
+  ${_CMD} umount -f "${_mount_point}"
+  LOG "Removing temporary mount point: ${_mount_point}"
+  ${_CMD} rm -rf "${_mount_point}"
 
 ###### Backup root file system to space on external volume:
-_mount_point=/Volumes/Media/backups/$(hostname)
-LOG "Verifying ${_mount_point}."
-if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
-  LOG "File ${_mount_point}/.mounted doesn't exist."
-else
-  LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
-  LOG "Copying to ${_mount_point} is in process..."
-	unset FLAGS
-# FLAGS="${FLAGS} --dry-run"
-# FLAGS="${FLAGS} --debug=filter "
-  FLAGS="${FLAGS} --links "
-	FLAGS="${FLAGS} --itemize-changes "
-  ${_CMD} rsync ${FLAGS} \
-    --archive --acls --xattrs --verbose \
-    --no-specials --no-devices \
-    --delete-during --delete-excluded --recursive \
-    --exclude-from="${_exclude_file}" \
-    / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
-  LOG "Resetting semaphore file."
-  ${_CMD} touch "${_mount_point}"/.mounted
-fi
-
-LOG "Removing excludes file: ${_exclude_file}"
-${_CMD} rm -f "${_exclude_file}"
+  _mount_point=/Volumes/Media/backups/$(hostname)
+  LOG "Verifying ${_mount_point}."
+  if [ ! -f "${_mount_point}"/.mounted ]; then # Don't see the hidden semaphore file, so ...
+    LOG "File ${_mount_point}/.mounted doesn't exist."
+  else
+    LOG "Last backup time: $(date -r ${_mount_point}/.mounted)"
+    LOG "Copying to ${_mount_point} is in process..."
+    unset FLAGS
+  # FLAGS="${FLAGS} --dry-run"
+  # FLAGS="${FLAGS} --debug=filter "
+    FLAGS="${FLAGS} --links "
+    FLAGS="${FLAGS} --itemize-changes "
+    ${_CMD} rsync ${FLAGS} \
+      --archive --acls --xattrs --verbose \
+      --no-specials --no-devices \
+      --delete-during --delete-excluded --recursive \
+      --exclude-from="${_exclude_file}" \
+      / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
+    LOG "Resetting semaphore file."
+    ${_CMD} touch "${_mount_point}"/.mounted
+  fi
+  LOG "Removing excludes file: ${_exclude_file}"
+  ${_CMD} rm -f "${_exclude_file}"
 
 LOG "${_script_name} completed."
 
