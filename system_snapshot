@@ -78,6 +78,7 @@ Cache/
 /var/*swap*
 /var/tmp
 /Volumes/Media
+/Volumes/TimeMachine/
 *.db-shm
 *.db-wal
 *.blog
