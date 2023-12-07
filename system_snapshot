@@ -102,8 +102,10 @@ Autorun.inf
 EOF
 
 ##### Clean up any lingering Docker cruft:
-  LOG "Pruning Docker subsystem"
-  ${_CMD} docker system prune -a --volumes -f
+  if [[ $( ${_CMD} systemctl is-active docker) == "active" ]]; then
+    LOG "Pruning Docker subsystem"
+    ${_CMD} docker system prune -a --volumes -f
+  fi
 
 ###### Backup root file system to space on SD card:
   LOG "Creating temporary mount point"
