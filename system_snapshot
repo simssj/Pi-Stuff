@@ -15,6 +15,40 @@ LOG() {
     ${_CMD} printf "[%s] %s\n" "$(date)" "$@" | tee --append  "${_log_file}"
 }
 
+function TweakPerms() {
+	# This is a first draft at customizing FLAGS based on the capabilities of the target filesystem.
+	# It's currently "trial and error" but would be improved by something based on $( mount | grep ${TARGET} | awk -F' ' '{print $5}' ) where TARGET is the physical target device
+	# Or, better yet, TARGET_FS_TYPE=$( df -h -T ${_mount_point} |grep ^/ | awk '{print $2}' )
+
+	TARGET_FS_TYPE=$( df -h -T ${_mount_point} |grep ^/ | awk '{print $2}' )
+
+	echo "Target File System Type is " ""${TARGET_FS_TYPE}""
+
+	TEMPFILE=$(mktemp ${_mount_point}/perm-test.XXX)
+
+	touch "${TEMPFILE}"
+
+	if [ $? != 0 ]; then
+		echo "It doesn't appear I have write permissions to /Volumes/Media/backups/$(hostname)"
+		exit 99
+	else
+		chmod 666 "${TEMPFILE}" &> /dev/null
+		if [ $? != 0 ]; then
+			FLAGS="${FLAGS} --no-perms"
+		fi
+		chgrp staff "${TEMPFILE}" &> /dev/null
+		if [ $? != 0 ]; then
+			FLAGS="${FLAGS} --no-group"
+		fi
+		chown pi "${TEMPFILE}" &> /dev/null
+		if [ $? != 0 ]; then
+			FLAGS="${FLAGS} --no-owner"
+		fi
+	fi
+
+	[ -f "${TEMPFILE}" ] && rm "${TEMPFILE}"
+} # End of function TweakPerms
+
 _MSG=$( printf "[%s] Starting ${_script_name} as user: %s" "$(date)" "$(whoami)" )
 
 # Check to make sure we can execute sudo commands:
@@ -120,11 +154,11 @@ EOF
   # FLAGS="${FLAGS} --debug=filter "
     FLAGS=" --links "
     FLAGS="${FLAGS} --itemize-changes "
-    ${_CMD} rsync ${FLAGS} \
-      --archive --acls --xattrs --verbose \
+    ${_CMD} rsync --one-file-system \
+      --archive --acls --verbose \
       --no-specials --no-devices \
       --delete-during --delete-excluded --recursive \
-      --exclude-from="${_exclude_file}" \
+      --exclude-from="${_exclude_file}" ${FLAGS} \
       / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
     LOG "Resetting semaphore file."
     ${_CMD} touch "${_mount_point}"/.mounted
@@ -145,13 +179,14 @@ EOF
     unset FLAGS
   # FLAGS="${FLAGS} --dry-run"
   # FLAGS="${FLAGS} --debug=filter "
+		TweakPerms			# This will update FLAGS to add/remove permissions based on file system capabilities
     FLAGS="${FLAGS} --links "
     FLAGS="${FLAGS} --itemize-changes "
-    ${_CMD} rsync ${FLAGS} \
-      --archive --acls --xattrs --verbose \
+    ${_CMD} rsync --one-file-system \
+      --archive --acls --verbose \
       --no-specials --no-devices \
       --delete-during --delete-excluded --recursive \
-      --exclude-from="${_exclude_file}" \
+      --exclude-from="${_exclude_file}" ${FLAGS} \
       / "${_mount_point}" 2>&1 | tee --append "${_log_file}"
     LOG "Resetting semaphore file."
     ${_CMD} touch "${_mount_point}"/.mounted
