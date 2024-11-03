@@ -135,7 +135,7 @@ Autorun.inf
 EOF
 
 ##### Clean up any lingering Docker cruft:
-  if [[ $( ${_CMD} systemctl is-active docker) == "active" ]]; then
+  if [[ $( ${_CMD} systemctl is-active docker) != "active" ]]; then
     LOG "Pruning Docker subsystem"
     ${_CMD} docker system prune -a --volumes -f
   fi
