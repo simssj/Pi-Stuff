@@ -5,6 +5,8 @@
 # To-Do: 
 #   More generalize the discovery of / mounting of an SD card. I'm thinking a blkid search for SD media with a label of BACKUP (or some such?) maybe?
 #   Detect the target filesystem and if it doesn't support (e.g.:) chown / chmod events remove them from RSYNC_FLAGS
+#   URGENT: If /Volumes/Media/backups/{hostname} (dir) doesn't exist, make it. And then touch it's .mounted semaphore
+#   Give some thought to tar -czvf {hostname}.tgz when done; maybe if a --tar option is passed on the command line?
 # e.g., ExFAT file systems benefit from these flags: " --no-perms --no-owner --no-group --no-links --modify-window=2 "
 
 readonly _script_name=$(basename "$0")
