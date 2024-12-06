@@ -104,6 +104,7 @@ Cache/
 /var/cache/*
 /var/lib/docker/containers/*
 /var/lib/docker/overlay2
+/var/lib/docker/image/overlay2
 /var/lib/docker/volumes/backingFsBlockDev
 /var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Cache/*
 /var/lib/plexmediaserver/Library/Application\ Support/Plex\ Media\ Server/Media/localhost/*
